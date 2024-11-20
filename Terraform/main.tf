@@ -12,11 +12,12 @@ provider "aws" {
   region = "ap-southeast-2"
 }
 
-resource "aws_instance" "tf_test_server" {
+resource "aws_instance" "stream_server" {
   ami           = "ami-06d2149e11dd4bec4"
   instance_type = "t2.micro"
-
   tags = {
-    Name = "KafkaTesting"
+    Name = var.instance_name
   }
+  user_data = file("scripts/start_script.sh")
+  security_groups = ["default"]
 }

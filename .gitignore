@@ -2,3 +2,4 @@ ml-10M100K
 Terraform/.terraform.lock.hcl
 Terraform/.terraform.tfstate.lock.info
 Terraform/terraform.tfstate
+.idea
