@@ -16,6 +16,7 @@ services:
       - monolith-zookeeper
     ports:
       - 9092:9092
+      - 29092:29092
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: monolith-zookeeper:2181
@@ -23,7 +24,20 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_CREATE_TOPICS: "user_features:1:1"
 
-volumes:
-  monolith_data:
+  monolith-spark:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: monolith-spark
+    depends_on:
+      - monolith-kafka
+    environment:
+      SPARK_KAFKA_BROKER: monolith-kafka:29092
+    command: >
+      spark-submit
+      --jars redshift-jdbc42-2.1.0.31.jar
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3
+      spark_join_job.py
+    ports:
+      - 8080:8080
