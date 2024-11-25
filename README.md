@@ -14,7 +14,7 @@ To try this out:
 * If there are no errors, you will be able to see `MicroBatchExecution` logs on your terminal
 
 Data Source:
-https://grouplens.org/datasets/movielens/10m/
+https://grouplens.org/datasets/movielens/10m/ (ensure this folder is in the project root)
 
 Monolith:
 https://arxiv.org/pdf/2209.07663
