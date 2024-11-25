@@ -4,3 +4,4 @@ Terraform/.terraform.tfstate.lock.info
 Terraform/terraform.tfstate
 .idea
 .ignore
+spark/.env
