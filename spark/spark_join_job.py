@@ -2,8 +2,7 @@ import os
 from dotenv import load_dotenv
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import expr, from_json, col
-from pyspark.sql.types import StructType, StructField, IntegerType, LongType, FloatType
-from traitlets import Float
+from pyspark.sql.types import StructType, StructField, IntegerType, LongType, FloatType, StringType
 
 load_dotenv()
 
@@ -17,7 +16,6 @@ redshift_table = os.getenv("REDSHIFT_TABLE")
 spark = SparkSession.builder \
     .appName("RedshiftTest") \
     .config("spark.jars", "spark/redshift-jdbc42-2.1.0.31.jar") \
-    .config("spark.jars", "spark/spark-sql_2.12-3.5.3.jar") \
     .getOrCreate()
 
 # Read from Kafka stream
@@ -25,7 +23,7 @@ kafka_stream = (
     spark
     .readStream
     .format("kafka")
-    .option("kafka.bootstrap.servers", "localhost:9092")
+    .option("kafka.bootstrap.servers", os.getenv("SPARK_KAFKA_BROKER", "monolith-kafka:29092"))
     .option("subscribe", "user_features")
     .option("startingOffsets", "latest")
     .load()
@@ -34,7 +32,7 @@ kafka_stream = (
 # Cast Kafka value to STRING
 kafka_json = kafka_stream.withColumn("value", expr("cast(value as STRING)"))
 
-# Define the schema to match the JSON structure
+# Define schemas
 schema = StructType([
     StructField("userId", IntegerType(), True),
     StructField("itemId", IntegerType(), True),
@@ -42,14 +40,35 @@ schema = StructType([
     StructField("timestamp", LongType(), True),
 ])
 
-# Parse JSON and extract fields
-streaming_df = kafka_json.withColumn("values_json", from_json(col("value"), schema)).selectExpr("values_json.*")
+metadata_schema = StructType([
+    StructField("itemId", IntegerType(), True),
+    StructField("title", StringType(), True),
+    StructField("genre", StringType(), True),
+])
 
-# Write the output to the console
+metadata_df = spark.read.csv("movies.csv", schema=metadata_schema, header=True)
+
+streaming_df = kafka_json.withColumn("values_json", from_json(col("value"), schema)).selectExpr("values_json.*")
+enriched_user_data = streaming_df.join(metadata_df, on="itemId", how="left")
+
+# Write enriched user data to Redshift
+def write_to_redshift(batch_df, batch_id):
+    """Function to write each batch of the streaming DataFrame to Redshift."""
+    batch_df.write \
+        .format("jdbc") \
+        .option("url", redshift_url) \
+        .option("dbtable", redshift_table) \
+        .option("user", redshift_user) \
+        .option("password", redshift_password) \
+        .option("driver", "com.amazon.redshift.jdbc42.Driver") \
+        .mode("append") \
+        .save()
+
+# Add the foreachBatch function to the streaming query
 query = (
-    streaming_df
+    enriched_user_data
     .writeStream
-    .format("console")
+    .foreachBatch(write_to_redshift)
     .outputMode("append")
     .start()
 )
