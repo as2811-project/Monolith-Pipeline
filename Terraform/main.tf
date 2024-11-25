@@ -63,3 +63,14 @@ resource "aws_instance" "stream_server" {
   security_groups = [aws_security_group.ssh_access.name]
   key_name = "KafkaKeyPair"
 }
+
+resource "aws_instance" "spark_server" {
+  ami           = "ami-06d2149e11dd4bec4"
+  instance_type = "t2.micro"
+  tags = {
+    Name = "Spark-Join-Processor"
+  }
+  user_data = file("scripts/start_script.sh")
+  security_groups = [aws_security_group.ssh_access.name]
+  key_name = "KafkaKeyPair"
+}
